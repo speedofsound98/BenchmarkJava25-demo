@@ -50,7 +50,6 @@ public class BenchmarkTest01334 extends HttpServlet {
         String bar = new Test().doSomething(request, param);
 
         try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
             byte[] input = {(byte) '?'};
             Object inputParam = bar;
             if (inputParam instanceof String) input = ((String) inputParam).getBytes();
@@ -65,9 +64,16 @@ public class BenchmarkTest01334 extends HttpServlet {
                 }
                 input = java.util.Arrays.copyOf(strInput, i);
             }
-            md.update(input);
+            java.security.SecureRandom random = new java.security.SecureRandom();
+            byte[] salt = new byte[16];
+            random.nextBytes(salt);
+            javax.crypto.spec.PBEKeySpec spec =
+                    new javax.crypto.spec.PBEKeySpec(
+                            new String(input).toCharArray(), salt, 600000, 256);
+            javax.crypto.SecretKeyFactory skf =
+                    javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            byte[] result = skf.generateSecret(spec).getEncoded();
 
-            byte[] result = md.digest();
             java.io.File fileTarget =
                     new java.io.File(
                             new java.io.File(org.owasp.benchmark.helpers.Utils.TESTFILES_DIR),
@@ -75,7 +81,9 @@ public class BenchmarkTest01334 extends HttpServlet {
             java.io.FileWriter fw =
                     new java.io.FileWriter(fileTarget, true); // the true will append the new data
             fw.write(
-                    "hash_value="
+                    "salt="
+                            + org.owasp.esapi.ESAPI.encoder().encodeForBase64(salt, true)
+                            + ",hash_value="
                             + org.owasp.esapi.ESAPI.encoder().encodeForBase64(result, true)
                             + "\n");
             fw.close();
@@ -89,7 +97,8 @@ public class BenchmarkTest01334 extends HttpServlet {
                                             .encodeForHTML(new String(input))
                                     + "' hashed and stored<br/>");
 
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (java.security.NoSuchAlgorithmException
+                | java.security.spec.InvalidKeySpecException e) {
             System.out.println("Problem executing hash - TestCase");
             throw new ServletException(e);
         }
