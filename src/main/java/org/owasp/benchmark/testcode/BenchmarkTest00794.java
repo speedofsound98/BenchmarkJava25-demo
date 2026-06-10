@@ -73,7 +73,9 @@ public class BenchmarkTest00794 extends HttpServlet {
         }
 
         try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            java.security.SecureRandom random = new java.security.SecureRandom();
+            byte[] salt = new byte[16];
+            random.nextBytes(salt);
             byte[] input = {(byte) '?'};
             Object inputParam = bar;
             if (inputParam instanceof String) input = ((String) inputParam).getBytes();
@@ -88,9 +90,13 @@ public class BenchmarkTest00794 extends HttpServlet {
                 }
                 input = java.util.Arrays.copyOf(strInput, i);
             }
-            md.update(input);
-
-            byte[] result = md.digest();
+            javax.crypto.spec.PBEKeySpec spec =
+                    new javax.crypto.spec.PBEKeySpec(
+                            new String(input).toCharArray(), salt, 600000, 256);
+            javax.crypto.SecretKeyFactory factory =
+                    javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            byte[] result = factory.generateSecret(spec).getEncoded();
+            spec.clearPassword();
             java.io.File fileTarget =
                     new java.io.File(
                             new java.io.File(org.owasp.benchmark.helpers.Utils.TESTFILES_DIR),
@@ -112,7 +118,7 @@ public class BenchmarkTest00794 extends HttpServlet {
                                             .encodeForHTML(new String(input))
                                     + "' hashed and stored<br/>");
 
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {
             System.out.println("Problem executing hash - TestCase");
             throw new ServletException(e);
         }
